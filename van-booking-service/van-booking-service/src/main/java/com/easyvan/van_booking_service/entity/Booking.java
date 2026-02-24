@@ -49,6 +49,9 @@ public class Booking {
     @Column(columnDefinition = "TEXT")
     private String remark;
 
+    private String slipImageUrl;
+    private String transactionId;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Route getRoute() {

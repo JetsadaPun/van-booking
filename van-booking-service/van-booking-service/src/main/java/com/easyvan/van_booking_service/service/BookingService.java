@@ -88,7 +88,7 @@ public class BookingService {
                 }
 
                 bookingRepository.save(booking);
-                return "จองสำเร็จ กรุณาชำระเงินเพื่อยืนยันมัดจำที่นั่ง";
+                return "จองสำเร็จ:" + booking.getId();
             } catch (Exception e) {
                 redisTemplate.delete(lockKey);
                 throw new RuntimeException("เกิดข้อผิดพลาดในการบันทึกข้อมูลการจอง: " + e.getMessage());
@@ -98,10 +98,12 @@ public class BookingService {
         }
     }
 
-    public void confirmPayment(Long bookingId) {
+    public void confirmPayment(Long bookingId, String slipImageUrl, String transactionId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("ไม่พบข้อมูลการจอง"));
 
+        booking.setSlipImageUrl(slipImageUrl);
+        booking.setTransactionId(transactionId);
         booking.setStatus("CONFIRMED");
         bookingRepository.save(booking);
 

@@ -19,6 +19,9 @@ export default function MyBookingsPage() {
     const [newTime, setNewTime] = useState('')
     const [statusFilter, setStatusFilter] = useState('ALL')
     const [timeFilter, setTimeFilter] = useState('ALL')
+    const [uploadingBooking, setUploadingBooking] = useState<any | null>(null)
+    const [slipFile, setSlipFile] = useState<File | null>(null)
+    const [isVerifying, setIsVerifying] = useState(false)
 
     const filteredBookings = bookings.filter(booking => {
         // Status Filter
@@ -183,6 +186,36 @@ export default function MyBookingsPage() {
         }
     }
 
+    const handleUploadSlip = async () => {
+        if (!uploadingBooking || !slipFile) return
+
+        try {
+            setIsVerifying(true)
+            const formData = new FormData()
+            formData.append('file', slipFile)
+
+            const res = await authFetch(`${BACKEND_URL}/api/payments/verify-slip/${uploadingBooking.id}`, {
+                method: 'POST',
+                body: formData
+            })
+
+            const data = await res.json()
+            setIsVerifying(false)
+
+            if (res.ok) {
+                Swal.fire('สำเร็จ!', 'ตรวจสอบสลิปเรียบร้อยแล้ว รายการของคุณได้รับการยืนยัน', 'success')
+                setBookings(prev => prev.map(b => b.id === uploadingBooking.id ? { ...b, status: 'CONFIRMED' } : b))
+                setUploadingBooking(null)
+                setSlipFile(null)
+            } else {
+                Swal.fire('การตรวจสอบสลิปล้มเหลว', data.message || 'สลิปไม่ถูกต้องหรือมีข้อผิดพลาด', 'error')
+            }
+        } catch (err) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error')
+            setIsVerifying(false)
+        }
+    }
+
     if (authLoading) {
         return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>
     }
@@ -302,6 +335,15 @@ export default function MyBookingsPage() {
                                     {/* Action Buttons */}
                                     {booking.status !== 'CANCELLED' && editingBooking?.id !== booking.id && (
                                         <div className="flex gap-2 mb-4 justify-end">
+                                            {booking.status === 'PENDING' && (
+                                                <Button
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                    size="sm"
+                                                    onClick={() => setUploadingBooking(booking)}
+                                                >
+                                                    ชำระเงิน
+                                                </Button>
+                                            )}
                                             <Button variant="outline" size="sm" onClick={() => startEdit(booking)}>
                                                 เลื่อนการเดินทาง
                                             </Button>
@@ -408,6 +450,74 @@ export default function MyBookingsPage() {
                         <div className="flex gap-3 pt-2">
                             <Button variant="outline" className="flex-1 py-3" onClick={cancelEdit}>ยกเลิก</Button>
                             <Button className="flex-1 py-3" onClick={saveReschedule} disabled={!newDate || !newTime}>ยืนยันการเปลี่ยนแปลง</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Modal */}
+            {uploadingBooking && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-black">แจ้งชำระเงิน</h3>
+                            <button onClick={() => setUploadingBooking(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                                <span className="text-xl font-medium">&times;</span>
+                            </button>
+                        </div>
+
+                        <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-600 font-bold uppercase tracking-widest text-[10px]">รหัสการจอง</span>
+                                <span className="font-black text-slate-900">#{uploadingBooking.id}</span>
+                            </div>
+
+                            <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-50 flex flex-col items-center gap-3">
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Scan เพื่อชำระเงิน <span className="text-slate-900">฿{uploadingBooking.totalPrice}</span></p>
+                                <div className="p-2 border-2 border-blue-50 rounded-xl bg-white">
+                                    <img
+                                        src={`https://promptpay.io/0909728265/${uploadingBooking.totalPrice}.png`}
+                                        alt="PromptPay QR"
+                                        className="w-40 h-40"
+                                    />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-xs font-bold text-slate-900 italic">พร้อมเพย์ (PromptPay)</p>
+                                    <p className="text-[10px] text-slate-500 font-bold">090-972-8265</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-slate-900 ml-1">อัปโหลดรูปสลิปเพื่อยืนยัน</label>
+                            <div className={`relative border-2 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center gap-2
+                                ${slipFile ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50 hover:border-blue-300'}`}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setSlipFile(e.target.files?.[0] || null)}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                                {slipFile ? (
+                                    <div className="text-center">
+                                        <p className="text-sm font-bold text-emerald-900">{slipFile.name}</p>
+                                        <p className="text-xs text-emerald-600">เปลี่ยนรูปคลิกที่นี่</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-500 font-medium">คลิกเพื่อเลือกรูปสลิป</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <Button variant="outline" className="flex-1 py-3" onClick={() => setUploadingBooking(null)}>ยกเลิก</Button>
+                            <Button
+                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700"
+                                onClick={handleUploadSlip}
+                                disabled={!slipFile || isVerifying}
+                            >
+                                {isVerifying ? 'กำลังตรวจสอบ...' : 'ยืนยันการชำระเงิน'}
+                            </Button>
                         </div>
                     </div>
                 </div>

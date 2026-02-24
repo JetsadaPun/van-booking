@@ -23,6 +23,8 @@ export default function BookingPage() {
   const [travelDate, setTravelDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('')
   const [phoneNumber, setPhoneNumber] = useState<string>('')
+  const [slipFile, setSlipFile] = useState<File | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   useEffect(() => {
     if (user?.phoneNumber) {
@@ -235,23 +237,57 @@ export default function BookingPage() {
         body: JSON.stringify(bookingRequest)
       })
 
-      const message = await res.text()
+      const rawResponse = await res.text()
 
-      if (res.ok) {
-        setBookingStatus({ success: true, message })
-        await Swal.fire({
-          icon: 'success',
-          title: 'จองที่นั่งสำเร็จ!',
-          text: 'ระบบกำลังพาคุณไปที่หน้ารายการจองของคุณ',
-          timer: 2000,
-          showConfirmButton: false
-        })
+      if (res.ok && rawResponse.startsWith('จองสำเร็จ:')) {
+        const bookingId = rawResponse.split(':')[1]
+
+        // If user uploaded a slip, verify it now
+        if (slipFile) {
+          setIsVerifying(true)
+          const formData = new FormData()
+          formData.append('file', slipFile)
+
+          const verifyRes = await authFetch(`${BACKEND_URL}/api/payments/verify-slip/${bookingId}`, {
+            method: 'POST',
+            body: formData
+          })
+
+          const verifyData = await verifyRes.json()
+          setIsVerifying(false)
+
+          if (verifyRes.ok) {
+            await Swal.fire({
+              icon: 'success',
+              title: 'ชำระเงินและจองสำเร็จ!',
+              text: 'สลิปของคุณได้รับการตรวจสอบเรียบร้อยแล้ว',
+              timer: 2000,
+              showConfirmButton: false
+            })
+          } else {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'จองสำเร็จ แต่สลิปไม่ถูกต้อง',
+              text: verifyData.message || 'สลิปของคุณไม่สามารถตรวจสอบได้ในขณะนี้ กรุณาลองใหม่ที่หน้ารายการจอง',
+              confirmButtonText: 'รับทราบ'
+            })
+          }
+        } else {
+          await Swal.fire({
+            icon: 'success',
+            title: 'จองที่นั่งสำเร็จ!',
+            text: 'กรุณาแจ้งชำระเงินในภายหลังที่หน้ารายการจองของคุณ',
+            timer: 2000,
+            showConfirmButton: false
+          })
+        }
+
         router.push('/my-bookings')
       } else {
         Swal.fire({
           icon: 'error',
           title: 'การจองล้มเหลว',
-          text: message || 'ที่นั่งนี้อาจถูกจองไปแล้ว กรุณาเลือกที่นั่งใหม่',
+          text: rawResponse || 'ที่นั่งนี้อาจถูกจองไปแล้ว กรุณาเลือกที่นั่งใหม่',
           confirmButtonText: 'ตกลง'
         })
       }
@@ -536,7 +572,24 @@ export default function BookingPage() {
                   <div className="pt-4">
                     <Button
                       className="w-full h-14"
-                      onClick={() => setStep(2)}
+                      onClick={() => {
+                        if (!user) {
+                          Swal.fire({
+                            icon: 'warning',
+                            title: 'กรุณาเข้าสู่ระบบ',
+                            text: 'คุณต้องเข้าสู่ระบบก่อนทำการเลือกที่นั่งและจองรถตู้',
+                            confirmButtonText: 'เข้าสู่ระบบ',
+                            showCancelButton: true,
+                            cancelButtonText: 'ยกเลิก'
+                          }).then((result) => {
+                            if (result.isConfirmed) {
+                              router.push('/login')
+                            }
+                          })
+                          return
+                        }
+                        setStep(2)
+                      }}
                       disabled={!originId || !destId || !travelDate || !selectedScheduleId || !selectedRoute || !phoneNumber}
                     >
                       {!selectedRoute && originId && destId ? 'ไม่มีเส้นทางให้บริการ' : 'ถัดไป: เลือกที่นั่ง'} <ChevronRight size={18} />
@@ -620,12 +673,60 @@ export default function BookingPage() {
                         <span className="text-black">ที่นั่งที่เลือก</span>
                         <span className="font-bold text-slate-900 text-lg">เบอร์ {selectedSeat}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-3">
-                        <span className="text-black">ยอดชำระมัดจำ</span>
-                        <span className="font-bold text-blue-600 text-lg">฿{selectedRoute?.basePrice}</span>
+                      <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Scan QR เพื่อชำระเงิน</p>
+                          <div className="bg-white p-2 border-2 border-blue-50 rounded-2xl">
+                            <img
+                              src={`https://promptpay.io/0909728265/${selectedRoute?.basePrice}.png`}
+                              alt="PromptPay QR Code"
+                              className="w-48 h-48 mx-auto"
+                            />
+                          </div>
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className="text-sm font-bold text-slate-900 italic">พร้อมเพย์ (PromptPay)</p>
+                          <p className="text-xs font-medium text-slate-500">เบอร์โทรศัพท์: <span className="text-blue-600 font-bold">090-972-8265</span></p>
+                          <p className="text-xs font-medium text-slate-500">ชื่อบัญชี: <span className="text-slate-900 font-bold uppercase">Jetsada P.</span></p>
+                        </div>
                       </div>
+
                       <div className="pt-2 text-[10px] text-slate-400 text-center italic">
-                        * เป็นการจำลองระบบชำระเงิน ข้อมูลจะถูกบันทึกทันทีเมื่อกดปุ่มยืนยัน
+                        * ระบบจะตรวจสอบไฟล์สลิปอัตโนมัติเมื่อท่านอัปโหลด
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-left">
+                      <label className="text-sm font-bold text-slate-900 ml-1">อัปโหลดสลิปเพื่อยืนยันทันที (แนะนำ)</label>
+                      <div className={`relative border-2 border-dashed rounded-3xl p-8 transition-all flex flex-col items-center gap-3
+                        ${slipFile ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:border-blue-300'}`}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setSlipFile(e.target.files?.[0] || null)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                        {slipFile ? (
+                          <>
+                            <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                              <Check size={24} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-emerald-900">{slipFile.name}</p>
+                              <p className="text-xs text-emerald-600">กดปุ่มยืนยันข้างล่างเพื่อตรวจสอบสลิป</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+                              <Link size={24} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-slate-900">คลิกหรือลากไฟล์สลิปมาวางที่นี่</p>
+                              <p className="text-xs text-slate-500">รองรับไฟล์ภาพ JPG, PNG</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -633,14 +734,18 @@ export default function BookingPage() {
                   <div className="flex gap-4">
                     <Button variant="outline" className="flex-1 h-14" onClick={() => setStep(2)} disabled={isSubmitting}>ย้อนกลับ</Button>
                     <Button
-                      className="flex-[2] h-14 bg-green-600 hover:bg-green-700"
+                      className={`flex-[2] h-14 ${slipFile ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600'}`}
                       onClick={handleBookingSubmit}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isVerifying}
                     >
-                      {isSubmitting ? (
-                        <>กำลังบันทึก... <Loader2 size={18} className="animate-spin ml-2" /></>
+                      {isVerifying ? (
+                        <>กำลังตรวจสอบสลิป... <Loader2 size={18} className="animate-spin ml-2" /></>
+                      ) : isSubmitting ? (
+                        <>กำลังบันทึกการจอง... <Loader2 size={18} className="animate-spin ml-2" /></>
+                      ) : slipFile ? (
+                        <>ตรวจสอบสลิปและจองทันที <Check size={18} className="ml-2" /></>
                       ) : (
-                        <>ยืนยันการชำระเงิน ฿{selectedRoute?.basePrice} <Check size={18} className="ml-2" /></>
+                        <>ยืนยันการจอง (ชำระเงินภายหลัง) <ChevronRight size={18} className="ml-2" /></>
                       )}
                     </Button>
                   </div>
