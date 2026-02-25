@@ -1,10 +1,16 @@
 package com.easyvan.van_booking_service.service;
 
 import com.easyvan.van_booking_service.entity.User;
+import com.easyvan.van_booking_service.entity.Station;
+import com.easyvan.van_booking_service.entity.Route;
+import com.easyvan.van_booking_service.entity.Schedule;
+import com.easyvan.van_booking_service.entity.Vehicle;
 import com.easyvan.van_booking_service.repository.UserRepository;
+import com.easyvan.van_booking_service.repository.StationRepository;
+import com.easyvan.van_booking_service.repository.RouteRepository;
+import com.easyvan.van_booking_service.repository.SchedulesRepository;
+import com.easyvan.van_booking_service.repository.VehicleRepository;
 import com.opencsv.CSVReader;
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,10 +28,10 @@ public class AdminService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final com.easyvan.van_booking_service.repository.StationRepository stationRepository;
-    private final com.easyvan.van_booking_service.repository.RouteRepository routeRepository;
-    private final com.easyvan.van_booking_service.repository.SchedulesRepository schedulesRepository;
-    private final com.easyvan.van_booking_service.repository.VehicleRepository vehicleRepository;
+    private final StationRepository stationRepository;
+    private final RouteRepository routeRepository;
+    private final SchedulesRepository schedulesRepository;
+    private final VehicleRepository vehicleRepository;
 
     public User createDriver(User driverData) {
         if (userRepository.existsByUsername(driverData.getUsername())) {
@@ -103,18 +109,16 @@ public class AdminService {
     }
 
     // --- Station Management ---
-    public com.easyvan.van_booking_service.entity.Station createStation(
-            com.easyvan.van_booking_service.entity.Station station) {
+    public Station createStation(Station station) {
         return stationRepository.save(station);
     }
 
-    public List<com.easyvan.van_booking_service.entity.Station> getAllStations() {
+    public List<Station> getAllStations() {
         return stationRepository.findAll();
     }
 
-    public com.easyvan.van_booking_service.entity.Station updateStation(Long id,
-            com.easyvan.van_booking_service.entity.Station data) {
-        com.easyvan.van_booking_service.entity.Station station = stationRepository.findById(id)
+    public Station updateStation(Long id, Station data) {
+        Station station = stationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("ไม่พบข้อมูลสถานี"));
         station.setStationName(data.getStationName());
         station.setProvince(data.getProvince());
@@ -127,18 +131,16 @@ public class AdminService {
     }
 
     // --- Route Management ---
-    public com.easyvan.van_booking_service.entity.Route createRoute(
-            com.easyvan.van_booking_service.entity.Route route) {
+    public Route createRoute(Route route) {
         return routeRepository.save(route);
     }
 
-    public List<com.easyvan.van_booking_service.entity.Route> getAllRoutes() {
+    public List<Route> getAllRoutes() {
         return routeRepository.findAll();
     }
 
-    public com.easyvan.van_booking_service.entity.Route updateRoute(Long id,
-            com.easyvan.van_booking_service.entity.Route data) {
-        com.easyvan.van_booking_service.entity.Route route = routeRepository.findById(id)
+    public Route updateRoute(Long id, Route data) {
+        Route route = routeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("ไม่พบข้อมูลเส้นทาง"));
         route.setOriginStation(data.getOriginStation());
         route.setDestinationStation(data.getDestinationStation());
@@ -153,12 +155,11 @@ public class AdminService {
     }
 
     // --- Schedule (Assignment) Management ---
-    public com.easyvan.van_booking_service.entity.Schedule createSchedule(
-            com.easyvan.van_booking_service.entity.Schedule schedule) {
+    public Schedule createSchedule(Schedule schedule) {
         return schedulesRepository.save(schedule);
     }
 
-    public List<com.easyvan.van_booking_service.entity.Schedule> getAllSchedules() {
+    public List<Schedule> getAllSchedules() {
         return schedulesRepository.findAll();
     }
 
@@ -166,7 +167,7 @@ public class AdminService {
         schedulesRepository.deleteById(id);
     }
 
-    public List<com.easyvan.van_booking_service.entity.Vehicle> getAllVehicles() {
+    public List<Vehicle> getAllVehicles() {
         return vehicleRepository.findAll();
     }
 }

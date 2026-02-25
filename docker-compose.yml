@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: van-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Punpun-190}
+      POSTGRES_DB: ${POSTGRES_DB:-van_booking_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - van-network
+
+  redis:
+    image: redis:7
+    container_name: van-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - van-network
+
+  backend:
+    build:
+      context: ./van-booking-service/van-booking-service
+      dockerfile: Dockerfile
+    container_name: van-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-van_booking_db}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-Punpun-190}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-7f79435b0358d7c433f85885065440787f79435b0358d7c433f8588506544078}
+      SMTP_USERNAME: ${SMTP_USERNAME:-jetsada.smtp@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-rseobsvdrmmkxlkb}
+      SLIP2GO_API_SECRET: ${SLIP2GO_API_SECRET}
+      SLIP2GO_API_URL: ${SLIP2GO_API_URL:-https://slip2go.com/api/verify-slip/qr-image/info}
+      FRONTEND_BASE_URL: http://localhost:3000
+    networks:
+      - van-network
+
+  frontend:
+    build:
+      context: ./van-booking-web
+      dockerfile: Dockerfile
+    container_name: van-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    networks:
+      - van-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  van-network:
+    driver: bridge
