@@ -1,15 +1,7 @@
 package com.easyvan.van_booking_service.service;
 
-import com.easyvan.van_booking_service.entity.User;
-import com.easyvan.van_booking_service.entity.Station;
-import com.easyvan.van_booking_service.entity.Route;
-import com.easyvan.van_booking_service.entity.Schedule;
-import com.easyvan.van_booking_service.entity.Vehicle;
-import com.easyvan.van_booking_service.repository.UserRepository;
-import com.easyvan.van_booking_service.repository.StationRepository;
-import com.easyvan.van_booking_service.repository.RouteRepository;
-import com.easyvan.van_booking_service.repository.SchedulesRepository;
-import com.easyvan.van_booking_service.repository.VehicleRepository;
+import com.easyvan.van_booking_service.entity.*;
+import com.easyvan.van_booking_service.repository.*;
 import com.opencsv.CSVReader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,6 +24,7 @@ public class AdminService {
     private final RouteRepository routeRepository;
     private final SchedulesRepository schedulesRepository;
     private final VehicleRepository vehicleRepository;
+    private final RoutineScheduleRepository routineScheduleRepository;
 
     public User createDriver(User driverData) {
         if (userRepository.existsByUsername(driverData.getUsername())) {
@@ -47,8 +40,8 @@ public class AdminService {
 
     public List<User> importDriversFromCsv(MultipartFile file) {
         List<User> users = new ArrayList<>();
-        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"))) {
-            CSVReader csvReader = new CSVReader(reader);
+        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
+             CSVReader csvReader = new CSVReader(reader)) {
             String[] nextRecord;
             boolean firstRow = true;
 
@@ -58,7 +51,6 @@ public class AdminService {
                     continue;
                 }
 
-                // Format: username, email, password, fullName, phoneNumber
                 if (nextRecord.length >= 5) {
                     String username = nextRecord[0].trim();
                     String email = nextRecord[1].trim();
@@ -167,7 +159,117 @@ public class AdminService {
         schedulesRepository.deleteById(id);
     }
 
+    public void deleteAllSchedules() {
+        schedulesRepository.deleteAll();
+    }
+
+    public List<Schedule> importSchedulesFromCsv(MultipartFile file) {
+        List<Schedule> schedules = new ArrayList<>();
+        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
+             CSVReader csvReader = new CSVReader(reader)) {
+            String[] nextRecord;
+            boolean firstRow = true;
+
+            while ((nextRecord = csvReader.readNext()) != null) {
+                if (firstRow || nextRecord.length < 4) { 
+                    firstRow = false;
+                    continue;
+                }
+
+                try {
+                    // Format: routeId, driverUsername, plateNumber, departureTime (ISO string)
+                    Long routeId = Long.parseLong(nextRecord[0].trim());
+                    String driverUsername = nextRecord[1].trim();
+                    String plateNumber = nextRecord[2].trim();
+                    String departureTimeStr = nextRecord[3].trim();
+
+                    Route route = routeRepository.findById(routeId).orElse(null);
+                    User driver = userRepository.findByUsername(driverUsername).orElse(null);
+                    Vehicle vehicle = vehicleRepository.findByPlateNumber(plateNumber).orElse(null);
+
+                    if (route != null && driver != null && vehicle != null) {
+                        Schedule sch = new Schedule();
+                        sch.setRoute(route);
+                        sch.setDriver(driver);
+                        sch.setVehicle(vehicle);
+                        sch.setDepartureTime(java.time.LocalDateTime.parse(departureTimeStr));
+                        sch.setStatus("AVAILABLE");
+                        schedules.add(sch);
+                    }
+                } catch (Exception e) {
+                    continue; // Skip faulty records
+                }
+            }
+            return schedulesRepository.saveAll(schedules);
+        } catch (Exception e) {
+            throw new RuntimeException("เกิดข้อผิดพลาดในการประมวลผลไฟล์ CSV: " + e.getMessage());
+        }
+    }
+
     public List<Vehicle> getAllVehicles() {
         return vehicleRepository.findAll();
+    }
+
+    // --- Routine Schedule Management ---
+    public RoutineSchedule createRoutine(RoutineSchedule routine) {
+        return routineScheduleRepository.save(routine);
+    }
+
+    public List<RoutineSchedule> getAllRoutines() {
+        return routineScheduleRepository.findAll();
+    }
+
+    public void deleteRoutine(Long id) {
+        routineScheduleRepository.deleteById(id);
+    }
+
+    public List<RoutineSchedule> importRoutinesFromCsv(MultipartFile file) {
+        List<RoutineSchedule> routines = new ArrayList<>();
+        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
+             CSVReader csvReader = new CSVReader(reader)) {
+            String[] nextRecord;
+            boolean firstRow = true;
+
+            while ((nextRecord = csvReader.readNext()) != null) {
+                if (firstRow || nextRecord.length < 4) { 
+                    firstRow = false;
+                    continue;
+                }
+
+                try {
+                    // Format: routeId, driverUsername, plateNumber, departureTime (HH:mm)
+                    Long routeId = Long.parseLong(nextRecord[0].trim());
+                    String driverUsername = nextRecord[1].trim();
+                    String plateNumber = nextRecord[2].trim();
+                    String timeStr = nextRecord[3].trim(); // e.g. "08:00"
+
+                    Route route = routeRepository.findById(routeId).orElse(null);
+                    User driver = userRepository.findByUsername(driverUsername).orElse(null);
+                    Vehicle vehicle = vehicleRepository.findByPlateNumber(plateNumber).orElse(null);
+
+                    if (route != null && driver != null && vehicle != null) {
+                        RoutineSchedule rs = new RoutineSchedule();
+                        rs.setRoute(route);
+                        rs.setDriver(driver);
+                        rs.setVehicle(vehicle);
+                        
+                        // Parse "08:00" or "08:00:00"
+                        if (timeStr.length() == 5) timeStr += ":00";
+                        rs.setDepartureTime(java.time.LocalTime.parse(timeStr));
+                        
+                        rs.setStatus("ACTIVE");
+                        routines.add(rs);
+                    }
+                } catch (Exception e) {
+                    continue;
+                }
+            }
+            return routineScheduleRepository.saveAll(routines);
+        } catch (Exception e) {
+            throw new RuntimeException("เกิดข้อผิดพลาดในการประมวลผลไฟล์ CSV: " + e.getMessage());
+        }
+    }
+    public void deleteAllRoutines() {
+        routineScheduleRepository.deleteAll();
     }
 }

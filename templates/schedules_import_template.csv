@@ -1,0 +1,4 @@
+routeId,driverUsername,plateNumber,departureTime
+1,driver_kps_bk,10-1001 กทม,2026-05-01T08:00:00
+1,driver_kps_bk,10-1001 กทม,2026-05-01T09:00:00
+2,driver_kps_op,10-1002 กทม,2026-05-01T08:30:00

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '../../../context/AuthContext'
 import DriverGuard from '../../../components/DriverGuard'
 import { Booking } from '../../../types'
-import { MapPin, Clock, Users, Phone, CheckCircle, ChevronLeft, Search, User, Bus, AlertCircle } from 'lucide-react'
+import { MapPin, Clock, Users, Phone, CheckCircle, ChevronLeft, Search, User, Bus, AlertCircle, Navigation } from 'lucide-react'
 
 export default function ScheduleDetail() {
     const { id } = useParams()
@@ -24,14 +24,14 @@ export default function ScheduleDetail() {
 
     const fetchScheduleData = async () => {
         try {
-            const schRes = await fetch(`http://localhost:8080/api/schedules/${id}`, {
+            const schRes = await fetch(`http://localhost:8081/api/schedules/${id}`, {
                 headers: { 'Authorization': `Bearer ${user.token}` }
             })
             if (schRes.ok) {
                 setScheduleInfo(await schRes.json())
             }
 
-            const res = await fetch(`http://localhost:8080/api/driver/schedules/${id}/bookings`, {
+            const res = await fetch(`http://localhost:8081/api/driver/schedules/${id}/bookings`, {
                 headers: { 'Authorization': `Bearer ${user.token}` }
             })
             if (res.ok) {
@@ -46,7 +46,7 @@ export default function ScheduleDetail() {
 
     const handleVerifyPickup = async (bookingId: number) => {
         try {
-            const res = await fetch(`http://localhost:8080/api/driver/verify-pickup/${bookingId}`, {
+            const res = await fetch(`http://localhost:8081/api/driver/verify-pickup/${bookingId}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${user.token}` }
             })
@@ -202,16 +202,28 @@ export default function ScheduleDetail() {
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-start gap-2 max-w-xs">
                                                         <MapPin size={14} className="text-slate-300 shrink-0 mt-0.5" />
-                                                        <p className="text-xs font-bold text-slate-600 leading-snug">{booking.pickupPoint}</p>
+                                                        <div className="flex flex-col gap-1">
+                                                            <p className="text-xs font-bold text-slate-600 leading-snug">{booking.pickupPoint}</p>
+                                                            {(booking.pickupLat && booking.pickupLng) && (
+                                                                <a 
+                                                                    href={`https://www.google.com/maps?q=${booking.pickupLat},${booking.pickupLng}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] text-blue-600 font-black uppercase tracking-widest hover:underline flex items-center gap-1"
+                                                                >
+                                                                    <Navigation size={10} /> ดูแผนที่
+                                                                </a>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`w-2 h-2 rounded-full ${booking.status === 'PICKED_UP' ? 'bg-green-500' :
-                                                                booking.status === 'CONFIRMED' ? 'bg-blue-500' : 'bg-amber-500'
+                                                            booking.status === 'CONFIRMED' ? 'bg-blue-500' : 'bg-amber-500'
                                                             }`}></span>
                                                         <span className={`text-[10px] font-black uppercase tracking-widest ${booking.status === 'PICKED_UP' ? 'text-green-600' :
-                                                                booking.status === 'CONFIRMED' ? 'text-blue-600' : 'text-amber-600'
+                                                            booking.status === 'CONFIRMED' ? 'text-blue-600' : 'text-amber-600'
                                                             }`}>
                                                             {booking.status === 'PICKED_UP' ? 'BOARDED' :
                                                                 booking.status === 'CONFIRMED' ? 'PAID' : 'PENDING'}

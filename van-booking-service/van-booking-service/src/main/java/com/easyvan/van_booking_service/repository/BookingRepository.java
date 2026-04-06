@@ -22,4 +22,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // ค้นหาการจองทั้งหมดที่อยู่ในรอบรถที่ขับโดย driverId นี้
     List<Booking> findByScheduleDriverId(Long driverId);
 
+    // ค้นหาการจองที่ค้างชำระ (เช่น PENDING) ที่สร้างไว้ก่อนเวลาที่กำหนด
+    List<Booking> findByStatusAndCreatedAtBefore(String status, java.time.LocalDateTime cutoff);
 }

@@ -44,7 +44,7 @@ export default function AdminDriversPage() {
     const fetchDrivers = async () => {
         setLoading(true)
         try {
-            const res = await authFetch('http://localhost:8080/api/admin/drivers')
+            const res = await authFetch('http://localhost:8081/api/admin/drivers')
             if (res.ok) {
                 const data = await res.json()
                 setDrivers(data)
@@ -65,7 +65,7 @@ export default function AdminDriversPage() {
 
         setLoading(true)
         try {
-            const res = await authFetch('http://localhost:8080/api/admin/drivers/import', {
+            const res = await authFetch('http://localhost:8081/api/admin/drivers/import', {
                 method: 'POST',
                 // authFetch headers logic handles Authorization, but we need to let the browser set Content-Type for FormData
                 body: formData
@@ -109,7 +109,7 @@ export default function AdminDriversPage() {
 
         if (result.isConfirmed) {
             try {
-                const res = await authFetch(`http://localhost:8080/api/admin/drivers/${id}`, {
+                const res = await authFetch(`http://localhost:8081/api/admin/drivers/${id}`, {
                     method: 'DELETE'
                 })
 
@@ -141,8 +141,8 @@ export default function AdminDriversPage() {
 
         try {
             const url = editingDriver
-                ? `http://localhost:8080/api/admin/drivers/${editingDriver.id}`
-                : 'http://localhost:8080/api/admin/drivers'
+                ? `http://localhost:8081/api/admin/drivers/${editingDriver.id}`
+                : 'http://localhost:8081/api/admin/drivers'
             const method = editingDriver ? 'PUT' : 'POST'
 
             const res = await authFetch(url, {

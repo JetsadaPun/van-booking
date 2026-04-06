@@ -52,6 +52,10 @@ export default function Navbar() {
                                             <Clock size={18} />
                                             การมอบหมายงาน
                                         </Link>
+                                        <Link href="/admin/reports" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-2">
+                                            <ShieldCheck size={18} />
+                                            รายงานและ Feedback
+                                        </Link>
                                     </>
                                 ) : (
                                     <>
@@ -139,6 +143,12 @@ export default function Navbar() {
                                                         <Clock size={20} />
                                                     </div>
                                                     จัดการตารางเวลา
+                                                </Link>
+                                                <Link href="/admin/reports" onClick={() => setIsOpen(false)} className="flex items-center gap-4 text-slate-600 font-bold text-lg p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                                                        <ShieldCheck size={20} />
+                                                    </div>
+                                                    รายงานและ Feedback
                                                 </Link>
                                             </>
                                         ) : (

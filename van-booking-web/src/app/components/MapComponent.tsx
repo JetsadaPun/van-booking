@@ -88,10 +88,10 @@ function MapEvents({ onLocationSelected, originCoord, destCoord, routePath, onDi
                 minDistance = getDistanceToSegment(clickedCoord, originCoord, destCoord);
             }
 
-            if (minDistance <= 500) {
+            if (minDistance <= 200) {
                 onLocationSelected(e.latlng.lat, e.latlng.lng)
             } else {
-                onDistanceError('จุดที่เลือกอยู่ห่างจากเส้นทางเกิน 500 เมตร')
+                onDistanceError('จุดที่เลือกอยู่ห่างจากเส้นทางเกิน 200 เมตร')
             }
         },
     })
@@ -202,7 +202,7 @@ export default function MapComponent({
 
     const handleError = (msg: string) => {
         setErrorHeader(msg)
-        setTimeout(() => setErrorHeader(null), 3000)
+        setTimeout(() => setErrorHeader(null), 3001)
     }
 
     const center: [number, number] = selectedPickupCoord || selectedDropoffCoord || originCoord || destCoord || [13.7563, 100.5018]
@@ -260,7 +260,7 @@ export default function MapComponent({
                         <Circle
                             center={selectedPickupCoord}
                             pathOptions={{ fillColor: '#3b82f6', color: '#3b82f6', opacity: 0.2 }}
-                            radius={100}
+                            radius={200}
                         />
                     </>
                 )}
@@ -273,7 +273,7 @@ export default function MapComponent({
                         <Circle
                             center={selectedDropoffCoord}
                             pathOptions={{ fillColor: '#ef4444', color: '#ef4444', opacity: 0.2 }}
-                            radius={100}
+                            radius={200}
                         />
                     </>
                 )}

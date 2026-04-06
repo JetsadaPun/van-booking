@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState } from 'react'
 import { Card, Button } from '../../components/UI'
-import { Check, Calendar, Clock, MapPin, User, ChevronLeft } from 'lucide-react'
+import { Check, Calendar, Clock, MapPin, User, ChevronLeft, Phone, Bus } from 'lucide-react'
 import Link from 'next/link'
 import { authFetch } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import Swal from 'sweetalert2'
 
-const BACKEND_URL = 'http://localhost:8080'
+const BACKEND_URL = 'http://localhost:8081'
 
 export default function MyBookingsPage() {
     const { user, isLoading: authLoading } = useAuth()
@@ -22,6 +22,10 @@ export default function MyBookingsPage() {
     const [uploadingBooking, setUploadingBooking] = useState<any | null>(null)
     const [slipFile, setSlipFile] = useState<File | null>(null)
     const [isVerifying, setIsVerifying] = useState(false)
+
+    const [reportingBooking, setReportingBooking] = useState<any>(null)
+    const [reportReason, setReportReason] = useState('')
+    const [reportRating, setReportRating] = useState(5)
 
     const filteredBookings = bookings.filter(booking => {
         // Status Filter
@@ -80,7 +84,6 @@ export default function MyBookingsPage() {
                 setLoading(false)
             }
         }
-        fetchMyBookings()
         fetchMyBookings()
     }, [user, authLoading])
 
@@ -216,6 +219,35 @@ export default function MyBookingsPage() {
         }
     }
 
+    const handleSubmitReport = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!reportingBooking || !reportReason) return
+
+        try {
+            const res = await authFetch(`${BACKEND_URL}/api/reports`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bookingId: reportingBooking.id,
+                    reporterId: user.id,
+                    reason: reportReason,
+                    rating: reportRating
+                })
+            })
+
+            if (res.ok) {
+                Swal.fire('ขอบคุณ!', 'ข้อมูลของคุณถูกส่งไปยังผู้ดูแลระบบแล้ว', 'success')
+                setReportingBooking(null)
+                setReportReason('')
+                setReportRating(5)
+            } else {
+                Swal.fire('ผิดพลาด', 'ไม่สามารถส่งรายงานได้ในขณะนี้', 'error')
+            }
+        } catch (err) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error')
+        }
+    }
+
     if (authLoading) {
         return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>
     }
@@ -243,13 +275,13 @@ export default function MyBookingsPage() {
         <div className="min-h-screen bg-slate-50 py-12 px-4">
             <div className="max-w-4xl mx-auto">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
-                    <div className="flex items-center gap-3 md:gap-4">
+                    <div className="flex items-center gap-3 md:gap-4 text-black">
                         <Link href="/">
                             <Button variant="outline" size="sm" className="rounded-full w-8 h-8 md:w-10 md:h-10 p-0">
-                                <ChevronLeft size={16} className="md:w-5 md:h-5" />
+                                <ChevronLeft size={16} className="md:w-5 md:h-5 text-black" />
                             </Button>
                         </Link>
-                        <h1 className="text-xl md:text-3xl font-bold text-black">รายการจองของฉัน</h1>
+                        <h1 className="text-xl md:text-3xl font-bold">รายการจองของฉัน</h1>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -319,13 +351,23 @@ export default function MyBookingsPage() {
                             <Card key={booking.id} className="overflow-hidden border-none shadow-md">
                                 <div className="p-6">
                                     <div className="flex justify-between items-start mb-4">
-                                        <div className={`px-4 py-1 rounded-full text-xs font-bold 
-                                            ${booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700'
-                                                : booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700'
-                                                    : 'bg-green-100 text-green-700'}`}>
-                                            {booking.status === 'PENDING' ? 'รอชำระเงิน'
-                                                : booking.status === 'CANCELLED' ? 'ยกเลิกแล้ว'
-                                                    : 'จองสำเร็จ'}
+                                        <div className="flex flex-col gap-2">
+                                            <div className={`px-4 py-1 rounded-full text-xs font-bold inline-block w-fit
+                                                ${booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700'
+                                                    : booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700'
+                                                        : 'bg-green-100 text-green-700'}`}>
+                                                {booking.status === 'PENDING' ? 'รอชำระเงิน'
+                                                    : booking.status === 'CANCELLED' ? 'ยกเลิกแล้ว'
+                                                        : 'จองสำเร็จ'}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-slate-900">
+                                                <Bus size={16} className="text-blue-600" />
+                                                <span className="font-black text-lg">
+                                                    {booking.schedule.route.originStation.stationName} 
+                                                    <span className="mx-2 text-slate-300">→</span>
+                                                    {booking.schedule.route.destinationStation.stationName}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="text-lg font-bold text-blue-600">
                                             ฿{booking.totalPrice}
@@ -333,25 +375,37 @@ export default function MyBookingsPage() {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    {booking.status !== 'CANCELLED' && editingBooking?.id !== booking.id && (
-                                        <div className="flex gap-2 mb-4 justify-end">
-                                            {booking.status === 'PENDING' && (
-                                                <Button
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                    size="sm"
-                                                    onClick={() => setUploadingBooking(booking)}
-                                                >
-                                                    ชำระเงิน
+                                    <div className="flex gap-2 mb-4 justify-end flex-wrap">
+                                        {booking.status === 'PENDING' && (
+                                            <Button
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                size="sm"
+                                                onClick={() => setUploadingBooking(booking)}
+                                            >
+                                                ชำระเงิน
+                                            </Button>
+                                        )}
+                                        {booking.status === 'CONFIRMED' && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-orange-600 border-orange-100 bg-orange-50 hover:bg-orange-100"
+                                                onClick={() => setReportingBooking(booking)}
+                                            >
+                                                รายงานปัญหา/คนขับ
+                                            </Button>
+                                        )}
+                                        {booking.status !== 'CANCELLED' && (
+                                            <>
+                                                <Button variant="outline" size="sm" onClick={() => startEdit(booking)} className="text-black">
+                                                    เลื่อนการเดินทาง
                                                 </Button>
-                                            )}
-                                            <Button variant="outline" size="sm" onClick={() => startEdit(booking)}>
-                                                เลื่อนการเดินทาง
-                                            </Button>
-                                            <Button variant="danger" size="sm" onClick={() => handleCancel(booking.id)} className="bg-red-50 text-red-600 border-red-100 hover:bg-red-100">
-                                                ยกเลิก
-                                            </Button>
-                                        </div>
-                                    )}
+                                                <Button variant="danger" size="sm" onClick={() => handleCancel(booking.id)} className="bg-red-50 text-red-600 border-red-100 hover:bg-red-100">
+                                                    ยกเลิก
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
 
                                     <div className="grid md:grid-cols-2 gap-6">
                                         <div className="space-y-4">
@@ -382,17 +436,37 @@ export default function MyBookingsPage() {
                                                     <p className="font-bold text-black">เบอร์ {booking.seatNumber}</p>
                                                 </div>
                                             </div>
+
+                                            {/* Driver Info */}
+                                            <div className="pt-2 mt-2 border-t border-slate-100 space-y-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                                                        <User size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-blue-600 font-bold uppercase tracking-widest text-[8px]">คนขับรถ</p>
+                                                        <p className="font-bold text-black">{booking.schedule.driver?.fullName || 'รอมอบหมาย'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
+                                                        <Phone size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-green-600 font-bold uppercase tracking-widest text-[8px]">เบอร์ติดต่อ</p>
+                                                        <p className="font-bold text-black">{booking.schedule.driver?.phoneNumber || '-'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="relative pl-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
                                             <div className="relative mb-6">
                                                 <div className="absolute -left-[24px] top-1 w-4 h-4 rounded-full bg-blue-500 border-4 border-white shadow-sm"></div>
-                                                <div className="absolute -left-[24px] top-1 w-4 h-4 rounded-full bg-blue-500 border-4 border-white shadow-sm"></div>
                                                 <p className="text-xs text-black">จุดรับ</p>
                                                 <p className="font-medium text-sm text-black">{booking.pickupPoint}</p>
                                             </div>
                                             <div className="relative">
-                                                <div className="absolute -left-[24px] top-1 w-4 h-4 rounded-full bg-red-500 border-4 border-white shadow-sm"></div>
                                                 <div className="absolute -left-[24px] top-1 w-4 h-4 rounded-full bg-red-500 border-4 border-white shadow-sm"></div>
                                                 <p className="text-xs text-black">จุดส่ง</p>
                                                 <p className="font-medium text-sm text-black">{booking.dropoffPoint}</p>
@@ -410,9 +484,9 @@ export default function MyBookingsPage() {
             {editingBooking && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-black">เลื่อนการเดินทาง</h3>
-                            <button onClick={cancelEdit} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                        <div className="flex justify-between items-center text-black">
+                            <h3 className="text-xl font-bold">เลื่อนการเดินทาง</h3>
+                            <button onClick={cancelEdit} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors text-black">
                                 <span className="text-xl font-medium">&times;</span>
                             </button>
                         </div>
@@ -459,9 +533,9 @@ export default function MyBookingsPage() {
             {uploadingBooking && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-black">แจ้งชำระเงิน</h3>
-                            <button onClick={() => setUploadingBooking(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                        <div className="flex justify-between items-center text-black">
+                            <h3 className="text-xl font-bold">แจ้งชำระเงิน</h3>
+                            <button onClick={() => setUploadingBooking(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors text-black">
                                 <span className="text-xl font-medium">&times;</span>
                             </button>
                         </div>
@@ -483,7 +557,7 @@ export default function MyBookingsPage() {
                                 </div>
                                 <div className="text-center">
                                     <p className="text-xs font-bold text-slate-900 italic">พร้อมเพย์ (PromptPay)</p>
-                                    <p className="text-[10px] text-slate-500 font-bold">090-972-8265</p>
+                                    <p className="text-[10px] text-slate-500 font-bold text-black">090-972-8265</p>
                                 </div>
                             </div>
                         </div>
@@ -504,7 +578,7 @@ export default function MyBookingsPage() {
                                         <p className="text-xs text-emerald-600">เปลี่ยนรูปคลิกที่นี่</p>
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-slate-500 font-medium">คลิกเพื่อเลือกรูปสลิป</p>
+                                    <p className="text-sm text-slate-500 font-medium text-black">คลิกเพื่อเลือกรูปสลิป</p>
                                 )}
                             </div>
                         </div>
@@ -519,6 +593,64 @@ export default function MyBookingsPage() {
                                 {isVerifying ? 'กำลังตรวจสอบ...' : 'ยืนยันการชำระเงิน'}
                             </Button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Driver Report Modal */}
+            {reportingBooking && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center text-black">
+                            <h3 className="text-xl font-bold">รายงานปัญหา/คนขับ</h3>
+                            <button onClick={() => setReportingBooking(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors text-black">
+                                <span className="text-xl font-medium">&times;</span>
+                            </button>
+                        </div>
+
+                        <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center shrink-0">
+                                <User size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">รายงานคนขับ</p>
+                                <p className="font-bold text-slate-900">{reportingBooking.schedule.driver?.fullName || 'ไม่ระบุชื่อ'}</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSubmitReport} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ให้คะแนนความพึงพอใจ</label>
+                                <div className="flex gap-3 justify-center text-black">
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                        <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => setReportRating(star)}
+                                            className={`text-3xl transition-all hover:scale-125 ${reportRating >= star ? 'grayscale-0' : 'grayscale'}`}
+                                        >
+                                            ⭐
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ระบุรายละเอียดปัญหาที่พบ</label>
+                                <textarea
+                                    className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-blue-500 focus:outline-none transition-colors text-black font-medium min-h-[120px]"
+                                    placeholder="เช่น ขับรถเร็วเกินไป, พูดจาไม่สุภาพ, ไม่รับที่จุดนัดพบ..."
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <Button variant="outline" className="flex-1 py-3" type="button" onClick={() => setReportingBooking(null)}>ยกเลิก</Button>
+                                <Button className="flex-1 py-3 bg-red-600 hover:bg-red-700" type="submit">ส่งรายงาน</Button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

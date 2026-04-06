@@ -21,7 +21,7 @@ export default function DriverDashboard() {
 
     const fetchSchedules = async () => {
         try {
-            const res = await fetch(`http://localhost:8080/api/driver/schedules/${user.id}`, {
+            const res = await fetch(`http://localhost:8081/api/driver/schedules/${user.id}`, {
                 headers: {
                     'Authorization': `Bearer ${user.token}`
                 }

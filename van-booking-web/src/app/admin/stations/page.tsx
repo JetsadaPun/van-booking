@@ -38,7 +38,7 @@ export default function AdminStationsPage() {
     const fetchStations = async () => {
         setLoading(true)
         try {
-            const res = await authFetch('http://localhost:8080/api/admin/stations')
+            const res = await authFetch('http://localhost:8081/api/admin/stations')
             if (res.ok) {
                 const data = await res.json()
                 setStations(data)
@@ -65,7 +65,7 @@ export default function AdminStationsPage() {
 
         if (result.isConfirmed) {
             try {
-                const res = await authFetch(`http://localhost:8080/api/admin/stations/${id}`, {
+                const res = await authFetch(`http://localhost:8081/api/admin/stations/${id}`, {
                     method: 'DELETE'
                 })
 
@@ -95,8 +95,8 @@ export default function AdminStationsPage() {
 
         try {
             const url = editingStation
-                ? `http://localhost:8080/api/admin/stations/${editingStation.id}`
-                : 'http://localhost:8080/api/admin/stations'
+                ? `http://localhost:8081/api/admin/stations/${editingStation.id}`
+                : 'http://localhost:8081/api/admin/stations'
             const method = editingStation ? 'PUT' : 'POST'
 
             const res = await authFetch(url, {

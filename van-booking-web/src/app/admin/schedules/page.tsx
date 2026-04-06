@@ -3,38 +3,40 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Button } from '../../components/UI'
 import {
-    Calendar,
     Plus,
     Trash2,
-    Search,
     X,
-    Check,
-    AlertCircle,
     User,
     Bus,
     Navigation,
     Clock,
-    UserCircle
+    Upload
 } from 'lucide-react'
 import AdminGuard from '../../components/AdminGuard'
 import { authFetch } from '../../utils/api'
 import Swal from 'sweetalert2'
-import { Schedule, Route, User as UserType, Vehicle } from '../../types'
+import { Route, User as UserType, Vehicle } from '../../types'
+
+const BACKEND_URL = 'http://localhost:8081'
 
 export default function AdminSchedulesPage() {
-    const [schedules, setSchedules] = useState<Schedule[]>([])
     const [routes, setRoutes] = useState<Route[]>([])
     const [drivers, setDrivers] = useState<UserType[]>([])
     const [vehicles, setVehicles] = useState<Vehicle[]>([])
+    const [routines, setRoutines] = useState<any[]>([])
+    
     const [loading, setLoading] = useState(true)
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [formData, setFormData] = useState({
+    const [isRoutineModalOpen, setIsRoutineModalOpen] = useState(false)
+
+    const [routineFormData, setRoutineFormData] = useState({
         routeId: '',
         driverId: '',
         vehicleId: '',
-        departureTime: '',
-        status: 'AVAILABLE'
+        departureTime: '', // HH:mm
+        status: 'ACTIVE'
     })
+
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         fetchData()
@@ -43,88 +45,133 @@ export default function AdminSchedulesPage() {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const [schRes, rRes, dRes, vRes] = await Promise.all([
-                authFetch('http://localhost:8080/api/admin/schedules'),
-                authFetch('http://localhost:8080/api/admin/routes'),
-                authFetch('http://localhost:8080/api/admin/drivers'),
-                authFetch('http://localhost:8080/api/admin/vehicles')
+            const [rRes, dRes, vRes, routineRes] = await Promise.all([
+                authFetch(`${BACKEND_URL}/api/admin/routes`),
+                authFetch(`${BACKEND_URL}/api/admin/drivers`),
+                authFetch(`${BACKEND_URL}/api/admin/vehicles`),
+                authFetch(`${BACKEND_URL}/api/admin/routines`)
             ])
 
-            if (schRes.ok && rRes.ok && dRes.ok && vRes.ok) {
-                setSchedules(await schRes.json())
+            if (rRes.ok && dRes.ok && vRes.ok && routineRes.ok) {
                 setRoutes((await rRes.json()).filter((r: Route) => r.isActive))
                 setDrivers(await dRes.json())
                 setVehicles(await vRes.json())
+                setRoutines(await routineRes.json())
             }
         } catch (error) {
-            console.error('Failed to fetch assignment data', error)
+            console.error('Failed to fetch data', error)
         } finally {
             setLoading(false)
         }
     }
 
-    const handleDelete = async (id: number) => {
+    const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const formData = new FormData()
+        formData.append('file', file)
+
+        setLoading(true)
+        try {
+            const res = await authFetch(`${BACKEND_URL}/api/admin/routines/import`, {
+                method: 'POST',
+                body: formData
+            })
+
+            if (res.ok) {
+                Swal.fire('สำเร็จ', 'นำเข้าตารางเดินรถถาวรเรียบร้อยแล้ว', 'success')
+                fetchData()
+            } else {
+                const errData = await res.json()
+                throw new Error(errData.message || 'การนำเข้าข้อมูลล้มเหลว')
+            }
+        } catch (error: any) {
+            Swal.fire('ผิดพลาด', error.message, 'error')
+        } finally {
+            setLoading(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        }
+    }
+
+    const handleDeleteRoutine = async (id: number) => {
         const result = await Swal.fire({
-            title: 'ยืนยันการยกเลิกรอบรถ?',
-            text: "ข้อมูลการจองในรอบนี้จะยังคงอยู่แต่รอบรถจะถูกลบออกจากระบบ",
+            title: 'ยืนยันการลบตารางถาวร?',
+            text: "รอบรถเวลานี้สำหรับเส้นทางนี้จะถูกลบออกจากระบบถาวร",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'ลบ',
+            cancelButtonText: 'ยกเลิก'
+        })
+
+        if (!result.isConfirmed) return
+
+        try {
+            const res = await authFetch(`${BACKEND_URL}/api/admin/routines/${id}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                Swal.fire('สำเร็จ', 'ลบตารางประจำเรียบร้อยแล้ว', 'success')
+                fetchData()
+            }
+        } catch (error) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถลบข้อมูลได้', 'error')
+        }
+    }
+
+    const handleClearAllRoutines = async () => {
+        const result = await Swal.fire({
+            title: 'ยืนยันการล้างตารางทั้งหมด?',
+            text: "ข้อมูลรอบรถถาวรทั้งหมดจะถูกลบออก และผู้โดยสารจะไม่เห็นรอบรถใดๆ จนกว่าจะสร้างใหม่",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: 'ลบรอบรถ',
-            cancelButtonText: 'ยกเลิก',
-            reverseButtons: true
+            confirmButtonText: 'ล้างทั้งหมด',
+            cancelButtonText: 'ยกเลิก'
         })
 
         if (result.isConfirmed) {
+            setLoading(true)
             try {
-                const res = await authFetch(`http://localhost:8080/api/admin/schedules/${id}`, {
+                const res = await authFetch(`${BACKEND_URL}/api/admin/routines/all`, {
                     method: 'DELETE'
                 })
                 if (res.ok) {
-                    Swal.fire('สำเร็จ', 'ลบรอบรถเรียบร้อยแล้ว', 'success')
-                    setSchedules(schedules.filter(s => s.id !== id))
+                    Swal.fire('สำเร็จ', 'ล้างข้อมูลตารางประจำเรียบร้อยแล้ว', 'success')
+                    fetchData()
                 }
             } catch (error) {
-                Swal.fire('ผิดพลาด', 'ไม่สามารถลบข้อมูลได้', 'error')
+                console.error(error)
+            } finally {
+                setLoading(false)
             }
         }
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmitRoutine = async (e: React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
+        const payload = {
+            route: { id: parseInt(routineFormData.routeId) },
+            driver: routineFormData.driverId ? { id: parseInt(routineFormData.driverId) } : null,
+            vehicle: routineFormData.vehicleId ? { id: parseInt(routineFormData.vehicleId) } : null,
+            departureTime: routineFormData.departureTime + ":00",
+            status: 'ACTIVE'
+        }
 
         try {
-            const route = routes.find(r => r.id === Number(formData.routeId))
-            const driver = drivers.find(d => d.id === Number(formData.driverId))
-            const vehicle = vehicles.find(v => v.id === Number(formData.vehicleId))
-
-            const payload = {
-                route,
-                driver,
-                vehicle,
-                departureTime: formData.departureTime,
-                status: formData.status
-            }
-
-            const res = await authFetch('http://localhost:8080/api/admin/schedules', {
+            const res = await authFetch(`${BACKEND_URL}/api/admin/routines`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
 
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'มอบหมายสำเร็จ', timer: 1500 })
-                setIsModalOpen(false)
+                Swal.fire('สำเร็จ', 'บันทึกตารางประจำเรียบร้อยแล้ว', 'success')
+                setIsRoutineModalOpen(false)
                 fetchData()
-            } else {
-                throw new Error('Failed to create schedule')
             }
-        } catch (error: any) {
-            Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: error.message })
-        } finally {
-            setLoading(false)
+        } catch (error) {
+            Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error')
         }
     }
 
@@ -132,63 +179,105 @@ export default function AdminSchedulesPage() {
         <AdminGuard>
             <div className="min-h-screen bg-slate-50 p-6 lg:p-10 text-slate-900">
                 <div className="max-w-7xl mx-auto space-y-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 text-black">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-                                <Calendar className="text-blue-600" />
-                                การมอบหมายหน้าที่ (Schedules)
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3 italic uppercase">
+                                <Clock className="text-blue-600" />
+                                Master <span className="text-blue-600">Schedules</span>
                             </h1>
-                            <p className="text-slate-500 font-medium mt-1">กำหนดคนขับและรถยนต์ให้กับเส้นทางในเวลาต่างๆ</p>
+                            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">จัดการตารางเดินรถถาวร (มีผลตลอดไป)</p>
                         </div>
-                        <Button
-                            variant="primary"
-                            icon={<Plus size={18} />}
-                            onClick={() => setIsModalOpen(true)}
-                        >
-                            สร้างรอบรถใหม่
-                        </Button>
+                        <div className="flex gap-2">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept=".csv"
+                                onChange={handleImportCSV}
+                            />
+                            <Button
+                                variant="outline"
+                                icon={<Upload size={18} />}
+                                onClick={() => fileInputRef.current?.click()}
+                                className="rounded-xl font-bold"
+                            >
+                                นำเข้า CSV
+                            </Button>
+
+                            <Button
+                                variant="primary"
+                                icon={<Plus size={18} />}
+                                onClick={() => {
+                                    setRoutineFormData({ routeId: '', driverId: '', vehicleId: '', departureTime: '', status: 'ACTIVE' })
+                                    setIsRoutineModalOpen(true)
+                                }}
+                                className="rounded-xl font-bold shadow-lg shadow-blue-200"
+                            >
+                                เพิ่มตารางประจำ
+                            </Button>
+                        </div>
                     </div>
 
-                    <Card className="overflow-hidden p-0 border-none shadow-xl shadow-slate-200/50">
+                    <Card className="overflow-hidden p-0 border-none shadow-2xl shadow-slate-200/50 rounded-[2rem]">
+                        <div className="p-6 border-b border-slate-50 bg-white flex justify-between items-center">
+                            <div>
+                                <h2 className="font-black text-slate-900 flex items-center gap-2 uppercase italic text-lg">
+                                    <Clock size={18} className="text-blue-600" />
+                                    ตารางการเดินรถประจำ (Routine)
+                                </h2>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">กำหนดคนขับและรถให้ "ถาวร" ในเวลาที่ระบุ</p>
+                            </div>
+                        </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-900 text-white font-bold text-sm tracking-wide">
-                                        <th className="px-6 py-4">เวลาเดินทาง</th>
-                                        <th className="px-6 py-4">เส้นทาง</th>
-                                        <th className="px-6 py-4">คนขับรถ</th>
-                                        <th className="px-6 py-4">ทะเบียนรถ</th>
-                                        <th className="px-6 py-4 text-center">จัดการ</th>
+                            <table className="w-full text-left border-collapse text-black">
+                                <thead className="bg-slate-50/50">
+                                    <tr>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">เวลา</th>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">เส้นทาง</th>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">คนขับ</th>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">ทะเบียนรถ</th>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">จัดการ</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 italic">
-                                    {loading && schedules.length === 0 ? (
-                                        <tr><td colSpan={5} className="px-6 py-20 text-center italic">กำลังโหลด...</td></tr>
-                                    ) : schedules.length === 0 ? (
-                                        <tr><td colSpan={5} className="px-6 py-20 text-center italic text-slate-400">ไม่มีรอบรถในระบบ</td></tr>
+                                <tbody className="divide-y divide-slate-50">
+                                    {loading && routines.length === 0 ? (
+                                        <tr><td colSpan={5} className="p-20 text-center animate-pulse font-black text-slate-300 uppercase tracking-widest">กำลังเชื่อมต่อฐานข้อมูล...</td></tr>
+                                    ) : routines.length === 0 ? (
+                                        <tr><td colSpan={5} className="p-20 text-center text-slate-400 font-bold">ไม่มีตารางประจำในระบบ กรุณาเพิ่มข้อมูล</td></tr>
                                     ) : (
-                                        schedules.map((s) => (
-                                            <tr key={s.id} className="hover:bg-slate-50 transition-colors not-italic">
-                                                <td className="px-6 py-4 font-bold text-blue-600">
-                                                    {new Date(s.departureTime).toLocaleString('th-TH', {
-                                                        dateStyle: 'short',
-                                                        timeStyle: 'short'
-                                                    })}
-                                                </td>
-                                                <td className="px-6 py-4 font-medium">
-                                                    {s.route.originStation.stationName} → {s.route.destinationStation.stationName}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <UserCircle size={16} className="text-slate-400" />
-                                                        <span className="font-bold">{s.driver.fullName}</span>
+                                        routines.map((routine: any) => (
+                                            <tr key={routine.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="p-6">
+                                                    <div className="flex items-center gap-2 text-blue-600 font-black text-lg italic">
+                                                        <Clock size={16} />
+                                                        {routine.departureTime.slice(0, 5)} น.
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 bg-slate-100 rounded-lg font-bold text-slate-700">{s.vehicle.plateNumber}</span>
+                                                <td className="p-6">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-black text-slate-400 uppercase tracking-tighter">Route</span>
+                                                        <span className="font-bold text-slate-700">{routine.route.originStation.stationName} → {routine.route.destinationStation.stationName}</span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <button onClick={() => handleDelete(s.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                                                <td className="p-6">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                                                            <User size={14} />
+                                                        </div>
+                                                        <span className="font-black text-slate-900">{routine.driver?.fullName || '-'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-6">
+                                                    <div className="inline-flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                                                        <Bus size={12} className="text-slate-400" />
+                                                        <span className="text-xs font-black text-slate-700">{routine.vehicle?.plateNumber || '-'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-6 text-right">
+                                                    <button
+                                                        onClick={() => handleDeleteRoutine(routine.id)}
+                                                        className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                    >
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </td>
@@ -201,44 +290,52 @@ export default function AdminSchedulesPage() {
                     </Card>
                 </div>
 
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                        <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-2xl font-black italic">สร้างรอบรถใหม่</h2>
-                                <button onClick={() => setIsModalOpen(false)}><X /></button>
-                            </div>
-                            <form className="space-y-4" onSubmit={handleSubmit}>
+                {/* Routine Modal */}
+                {isRoutineModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-10 space-y-8 animate-in zoom-in duration-200">
+                            <div className="flex items-center justify-between text-black">
                                 <div>
-                                    <label className="block text-sm font-bold mb-1">เส้นทาง</label>
-                                    <select className="w-full p-3 bg-slate-50 border rounded-xl font-bold" value={formData.routeId} onChange={e => setFormData({ ...formData, routeId: e.target.value })} required>
+                                    <h2 className="text-3xl font-black italic uppercase">Add <span className="text-blue-600">Routine</span></h2>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">เพิ่มรอบรถถาวรรายวัน</p>
+                                </div>
+                                <button onClick={() => setIsRoutineModalOpen(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center hover:rotate-90 transition-transform"><X size={20} /></button>
+                            </div>
+                            
+                            <form className="space-y-6 text-black" onSubmit={handleSubmitRoutine}>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เส้นทางหลัก</label>
+                                    <select className="w-full p-4 bg-slate-50 border-none rounded-2xl font-black text-slate-700 focus:ring-2 ring-blue-100 outline-none transition-all appearance-none" value={routineFormData.routeId} onChange={e => setRoutineFormData({ ...routineFormData, routeId: e.target.value })} required>
                                         <option value="">เลือกเส้นทาง...</option>
                                         {routes.map(r => <option key={r.id} value={r.id}>{r.originStation.stationName} → {r.destinationStation.stationName}</option>)}
                                     </select>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold mb-1">คนขับรถ</label>
-                                        <select className="w-full p-3 bg-slate-50 border rounded-xl font-bold" value={formData.driverId} onChange={e => setFormData({ ...formData, driverId: e.target.value })} required>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เวลาเดินรถ (ประจำวัน)</label>
+                                    <input type="time" className="w-full p-4 bg-slate-50 border-none rounded-2xl font-black text-slate-700 focus:ring-2 ring-blue-100 outline-none transition-all" value={routineFormData.departureTime} onChange={e => setRoutineFormData({ ...routineFormData, departureTime: e.target.value })} required />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">คนขับรถประจำ</label>
+                                        <select className="w-full p-4 bg-slate-50 border-none rounded-2xl font-black text-slate-700 focus:ring-2 ring-blue-100 outline-none transition-all appearance-none" value={routineFormData.driverId} onChange={e => setRoutineFormData({ ...routineFormData, driverId: e.target.value })} required>
                                             <option value="">เลือกคนขับ...</option>
                                             {drivers.map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold mb-1">รถที่ใช้</label>
-                                        <select className="w-full p-3 bg-slate-50 border rounded-xl font-bold" value={formData.vehicleId} onChange={e => setFormData({ ...formData, vehicleId: e.target.value })} required>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">รถตู้ประจำรอบ</label>
+                                        <select className="w-full p-4 bg-slate-50 border-none rounded-2xl font-black text-slate-700 focus:ring-2 ring-blue-100 outline-none transition-all appearance-none" value={routineFormData.vehicleId} onChange={e => setRoutineFormData({ ...routineFormData, vehicleId: e.target.value })} required>
                                             <option value="">เลือกรถ...</option>
-                                            {vehicles.map(v => <option key={v.id} value={v.id}>{v.plateNumber} ({v.model})</option>)}
+                                            {vehicles.map(v => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
                                         </select>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold mb-1">เวลาออกเดินทาง</label>
-                                    <input type="datetime-local" className="w-full p-3 bg-slate-50 border rounded-xl font-bold" value={formData.departureTime} onChange={e => setFormData({ ...formData, departureTime: e.target.value })} required />
-                                </div>
-                                <div className="flex gap-3 pt-4">
-                                    <Button variant="outline" type="button" className="flex-1" onClick={() => setIsModalOpen(false)}>ยกเลิก</Button>
-                                    <Button type="submit" className="flex-1" loading={loading}>บันทึกข้อมูล</Button>
+
+                                <div className="flex gap-4 pt-4">
+                                    <Button variant="outline" type="button" className="flex-1 py-4 rounded-2xl font-black uppercase text-xs" onClick={() => setIsRoutineModalOpen(false)}>ยกเลิก</Button>
+                                    <Button type="submit" className="flex-1 py-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-blue-200">ยืนยันข้อมูล</Button>
                                 </div>
                             </form>
                         </div>

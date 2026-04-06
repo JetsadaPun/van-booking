@@ -41,7 +41,7 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         try {
-            const res = await fetch(`http://localhost:8080/api/auth/${user.id}`, {
+            const res = await fetch(`http://localhost:8081/api/auth/${user.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

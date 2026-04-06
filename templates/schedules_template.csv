@@ -1,0 +1,3 @@
+Departure Time,Route,Driver,Vehicle,Status
+2024-04-10T08:00:00,กทม -> นครปฐม,สมชาย ขับดี,ฮพ-9999,AVAILABLE
+2024-04-10T10:30:00,นครปฐม -> กทม,วิชัย สายด่วน,กข-1234,AVAILABLE

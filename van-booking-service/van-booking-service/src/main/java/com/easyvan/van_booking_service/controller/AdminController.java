@@ -108,8 +108,47 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/schedules/all")
+    public ResponseEntity<Void> deleteAllSchedules() {
+        adminService.deleteAllSchedules();
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/vehicles")
     public ResponseEntity<List<com.easyvan.van_booking_service.entity.Vehicle>> getAllVehicles() {
         return ResponseEntity.ok(adminService.getAllVehicles());
+    }
+
+    @PostMapping("/schedules/import")
+    public ResponseEntity<List<com.easyvan.van_booking_service.entity.Schedule>> importSchedules(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(adminService.importSchedulesFromCsv(file));
+    }
+
+    // --- Routine Schedule Management ---
+    @GetMapping("/routines")
+    public ResponseEntity<List<com.easyvan.van_booking_service.entity.RoutineSchedule>> getAllRoutines() {
+        return ResponseEntity.ok(adminService.getAllRoutines());
+    }
+
+    @PostMapping("/routines")
+    public ResponseEntity<com.easyvan.van_booking_service.entity.RoutineSchedule> createRoutine(
+            @RequestBody com.easyvan.van_booking_service.entity.RoutineSchedule routine) {
+        return ResponseEntity.ok(adminService.createRoutine(routine));
+    }
+
+    @DeleteMapping("/routines/{id}")
+    public ResponseEntity<Void> deleteRoutine(@PathVariable Long id) {
+        adminService.deleteRoutine(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/routines/import")
+    public ResponseEntity<List<com.easyvan.van_booking_service.entity.RoutineSchedule>> importRoutines(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(adminService.importRoutinesFromCsv(file));
+    }
+    @DeleteMapping("/routines/all")
+    public ResponseEntity<Void> deleteAllRoutines() {
+        adminService.deleteAllRoutines();
+        return ResponseEntity.ok().build();
     }
 }

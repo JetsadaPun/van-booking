@@ -37,7 +37,7 @@
    ```bash
    mvn spring-boot:run
    ```
-   Server จะเริ่มทำงานที่ `http://localhost:8080`
+   Server จะเริ่มทำงานที่ `http://localhost:8081`
 
 ### 2. Frontend Setup
 เข้าไปที่โฟลเดอร์ `van-booking-web`
@@ -50,7 +50,7 @@
    ```bash
    npm run dev
    ```
-   เว็บแอปพลิเคชันจะทำงานที่ `http://localhost:3000`
+   เว็บแอปพลิเคชันจะทำงานที่ `http://localhost:3001`
 
 ## 📂 โครงสร้างโปรเจกต์ (Project Structure)
 

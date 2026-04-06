@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { authFetch } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 
-const BACKEND_URL = 'http://localhost:8080'
+const BACKEND_URL = 'http://localhost:8081'
 
 export default function BookingPage() {
   const router = useRouter()
@@ -559,7 +559,7 @@ export default function BookingPage() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black text-black uppercase tracking-widest ml-1 mb-2 block">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+                      <label className="text-[10px] font-black text-black uppercase tracking-widest ml-1 mb-2 block">ข้อมูลเพิ่มเติม (ถ้ามี)</label>
                       <textarea
                         value={remark}
                         onChange={(e) => setRemark(e.target.value)}

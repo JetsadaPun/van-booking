@@ -60,3 +60,12 @@ export interface Booking {
     totalPrice: number;
     createdAt?: string;
 }
+
+export interface RoutineSchedule {
+    id: number;
+    route: Route;
+    driver: User;
+    vehicle: Vehicle;
+    departureTime: string; // HH:mm:ss
+    status: 'ACTIVE' | 'INACTIVE';
+}

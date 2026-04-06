@@ -32,7 +32,7 @@ services:
     container_name: van-backend
     restart: always
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
       - postgres
       - redis
@@ -47,7 +47,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-rseobsvdrmmkxlkb}
       SLIP2GO_API_SECRET: ${SLIP2GO_API_SECRET}
       SLIP2GO_API_URL: ${SLIP2GO_API_URL:-https://slip2go.com/api/verify-slip/qr-image/info}
-      FRONTEND_BASE_URL: http://localhost:3000
+      FRONTEND_BASE_URL: http://localhost:3001
     networks:
       - van-network
 
@@ -58,11 +58,11 @@ services:
     container_name: van-frontend
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3001"
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_API_URL: http://localhost:8081
     networks:
       - van-network
 

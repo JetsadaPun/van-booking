@@ -43,8 +43,8 @@ export default function AdminRoutesPage() {
         setLoading(true)
         try {
             const [routesRes, stationsRes] = await Promise.all([
-                authFetch('http://localhost:8080/api/admin/routes'),
-                authFetch('http://localhost:8080/api/admin/stations')
+                authFetch('http://localhost:8081/api/admin/routes'),
+                authFetch('http://localhost:8081/api/admin/stations')
             ])
 
             if (routesRes.ok && stationsRes.ok) {
@@ -75,7 +75,7 @@ export default function AdminRoutesPage() {
 
         if (result.isConfirmed) {
             try {
-                const res = await authFetch(`http://localhost:8080/api/admin/routes/${id}`, {
+                const res = await authFetch(`http://localhost:8081/api/admin/routes/${id}`, {
                     method: 'DELETE'
                 })
 
@@ -120,8 +120,8 @@ export default function AdminRoutesPage() {
             }
 
             const url = editingRoute
-                ? `http://localhost:8080/api/admin/routes/${editingRoute.id}`
-                : 'http://localhost:8080/api/admin/routes'
+                ? `http://localhost:8081/api/admin/routes/${editingRoute.id}`
+                : 'http://localhost:8081/api/admin/routes'
             const method = editingRoute ? 'PUT' : 'POST'
 
             const res = await authFetch(url, {
